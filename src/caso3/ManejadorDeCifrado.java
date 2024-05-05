@@ -23,9 +23,11 @@ public class ManejadorDeCifrado {
 	private static final String PADDING_FIRMA = "SHA256withRSA";
 	private static final String PADDING_HASH = "SHA-512";
 	private static final String PADDING_HMAC = "HmacSHA256";
+	private static final String ALGORITMO_SIMETRICO = "AES";
+	private static final String ALGORITMO_ASIMETRICO = "RSA";
 
 	/*
-	 * Metodo que cifra un texto convertido a bytes
+	 * Metodo que cifra de forma simétrica un texto convertido a bytes
 	 * @param llave: Llave simetrica K_AB1 para cifrar
 	 * @param textoClaro: Texto a cifrar convertido a bytes
 	 * @param iv: Vector de inicializacion del CBC
@@ -43,7 +45,7 @@ public class ManejadorDeCifrado {
 	}
 
 	/*
-	 * Metodo que descifra un texto cifrado convertido a bytes
+	 * Metodo que descifra de forma simétrica un texto cifrado convertido a bytes
 	 * @param llave: Llave simetrica K_AB1 para descifrar
 	 * @param texto: Texto cifrado convertido a bytes
 	 * @param iv: Vector de inicializacion del CBC
@@ -67,7 +69,7 @@ public class ManejadorDeCifrado {
 	 * @param texto: Texto a cifrar convertido a bytes
 	 * @return hmacBytes: Arreglo de bytes que contiene el HMAC
 	*/
-	public static byte[] generarHMAC (SecretKey key, byte[] texto) {
+	public static byte[] generarHMAC(SecretKey key, byte[] texto) {
 		byte[] hmacBytes = null;
 		try {
 			Mac mac = Mac.getInstance(PADDING_HMAC);
@@ -84,8 +86,8 @@ public class ManejadorDeCifrado {
 	 * @param bytesMitadLlave: Arreglo de bytes que contiene la mitad de la llave generada con Diffie-Hellman
 	 * @return nuevaLlave: Llave simetrica generada
 	*/
-	public static SecretKey generarLlave(byte[] bytesMitadLlave) {
-		SecretKey nuevaLlave = new SecretKeySpec(bytesMitadLlave, 0, bytesMitadLlave.length, "AES");
+	private static SecretKey generarLlave(byte[] bytesMitadLlave) {
+		SecretKey nuevaLlave = new SecretKeySpec(bytesMitadLlave, 0, bytesMitadLlave.length, ALGORITMO_SIMETRICO);
 		return nuevaLlave;
 	}
 
@@ -116,7 +118,7 @@ public class ManejadorDeCifrado {
 	 * @param recibido: Firma digital recibida
 	 * @return esValida: Booleano que indica si la firma es valida
 	*/
-	public static boolean validarFirma (PublicKey llavePublica, byte[] actual, byte[] recibido) {
+	public static boolean validarFirma(PublicKey llavePublica, byte[] actual, byte[] recibido) {
 		boolean esValida = false;
 		try {
 			Signature firma = Signature.getInstance(PADDING_FIRMA);
@@ -135,7 +137,7 @@ public class ManejadorDeCifrado {
 	 * @param z: Arreglo de bytes que contiene la llave generada con Diffie-Hellman
 	 * @return llaves: Arreglo de llaves simetricas generadas
 	*/
-	public static SecretKey[] generarLlavesSimetricas (byte[] z){
+	public static SecretKey[] generarLlavesSimetricas(byte[] z){
 		SecretKey K_AB1 = null;
 		SecretKey K_AB2 = null;
 		MessageDigest digest;
@@ -165,7 +167,7 @@ public class ManejadorDeCifrado {
 		PrivateKey llavePrivada = null;
 		try {
 			byte[] llavePrivadaEnBytes = Base64.getDecoder().decode(llaveCodificada);
-			KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+			KeyFactory keyFactory = KeyFactory.getInstance(ALGORITMO_ASIMETRICO);
 			llavePrivada = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(llavePrivadaEnBytes));
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -182,7 +184,7 @@ public class ManejadorDeCifrado {
 		PublicKey llavePublica = null;
 		try {
 			byte[] llavePublicaEnBytes = Base64.getDecoder().decode(llaveCodificada);
-			KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+			KeyFactory keyFactory = KeyFactory.getInstance(ALGORITMO_ASIMETRICO);
 			llavePublica = keyFactory.generatePublic(new X509EncodedKeySpec(llavePublicaEnBytes));
 		}
 		catch (Exception e) {
