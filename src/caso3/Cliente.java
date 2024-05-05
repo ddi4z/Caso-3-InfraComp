@@ -1,12 +1,10 @@
 package caso3;
 
-
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
@@ -20,20 +18,9 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Scanner;
 import javax.crypto.SecretKey;
-
 import javax.crypto.spec.IvParameterSpec;
 
 public class Cliente {
-	private BigInteger p;
-	private BigInteger g;
-	private BigInteger x;
-	private BigInteger gx;
-	private BigInteger gy;
-
-	private String login;
-	private String password;
-	private BigInteger consulta;
-
 	private static final String generadorLlavePublica = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgefqw/yu0jgJTobhAouBAd8CbOFYDHgANfw9ymeY2YO++DsiqMFLqPp9hyhf9sE/Lz/oBb+EsP+EPdh96kdh8P9Vt9HJ4PBqdIx3Z6psSWKXn06Dj4NIKnTCvJ1H/AbOjRuoyP9O6LfIVpquJpiKnCCuroGSI6LuagiA2f4wB5L2bGmJYahqyGgUys7pFBFvYW+NjvD4Lgs72+kSIZ0kwr6nRRr0tVGeqlmlxivbSnr6ZN5CDLjMSDGwFX6LEPiFSCDim+M8qLxRItzmW3TKVsNnkIgksJOVKnMa5BOnoP/wbaRvnOfuJYn42ADnrro1bdDZcleVP2VAMIHhpvsWjwIDAQAB";
 
 
@@ -136,7 +123,7 @@ public class Cliente {
 
 			String mensajeErrorOk = inputStream.readUTF();
 			if (!mensajeErrorOk.equals("OK")) {
-				System.out.println("Conexion con el servidor cerrada");
+				System.out.println("Conexion con el servidor cerrada al verificar usuario");
 				sc.close();
 				return;
 			}
@@ -154,7 +141,7 @@ public class Cliente {
 			mensajeErrorOk = inputStream.readUTF();
 
 			if (!mensajeErrorOk.equals("OK")) {
-				System.out.println("MAL MAC");
+				System.out.println("Conexion con el servidor cerrada al verificar consulta");
 				sc.close();
 				return;
 			}
@@ -166,7 +153,7 @@ public class Cliente {
 
 
 			if (!MessageDigest.isEqual(hmacConsulta, hmacCalculado)) {
-				System.out.println("Error en la comunicación");
+				System.out.println("Conexion con el servidor cerrada por error en el HMAC");
 				sc.close();
 				return;
 			}
