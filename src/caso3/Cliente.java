@@ -19,21 +19,21 @@ public class Cliente extends Thread {
 	private static final String generadorLlavePublica = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgefqw/yu0jgJTobhAouBAd8CbOFYDHgANfw9ymeY2YO++DsiqMFLqPp9hyhf9sE/Lz/oBb+EsP+EPdh96kdh8P9Vt9HJ4PBqdIx3Z6psSWKXn06Dj4NIKnTCvJ1H/AbOjRuoyP9O6LfIVpquJpiKnCCuroGSI6LuagiA2f4wB5L2bGmJYahqyGgUys7pFBFvYW+NjvD4Lgs72+kSIZ0kwr6nRRr0tVGeqlmlxivbSnr6ZN5CDLjMSDGwFX6LEPiFSCDim+M8qLxRItzmW3TKVsNnkIgksJOVKnMa5BOnoP/wbaRvnOfuJYn42ADnrro1bdDZcleVP2VAMIHhpvsWjwIDAQAB";
 	private int id;
 
+	private static long tiempoVerificarFirma = 0;
+	private static long tiempoCalcularGy = 0;
+	private static long tiempoCifrarConsulta = 0;
+	private static long tiempoGenerarCodigo = 0;
+
 	public Cliente(int id) {
 		this.id = id;
 	}
 
 	@Override
 	public void run() {
-		try {
-			Thread.sleep(1000);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
 		DataInputStream inputStream = null;
 		DataOutputStream outputStream = null;
 		Socket socket = null;
-
+		long startTime = 0;
 		try {
 			PublicKey llavePublica = ManejadorDeCifrado.generarLlavePublica(generadorLlavePublica);
 			socket = new Socket("localhost", 4000);
@@ -50,6 +50,7 @@ public class Cliente extends Thread {
 			// -- (Paso 2) El servidor realiza una firma digital del reto --
 
 			// -- (Paso 3) Se recibe la firma digital del servidor --
+			startTime = System.nanoTime();
 			byte[] R1 = Base64.getDecoder().decode(inputStream.readUTF());
 
 			// Paso 4
@@ -64,6 +65,7 @@ public class Cliente extends Thread {
 				outputStream.writeUTF("ERROR");
 				throw new SignatureException("La firma digital no es válida.");
 			}
+			tiempoVerificarFirma += System.nanoTime() - startTime;
 
 			// -- (Paso 6) El servidor envía los valores de p, g, gy y el vector de inicialización --
 
@@ -91,9 +93,11 @@ public class Cliente extends Thread {
 
 			// Paso 10
 			// Se envia y genera gy al servidor
+			startTime = System.nanoTime();
 			BigInteger x = new BigInteger(256, new SecureRandom());
 			BigInteger gx = g.modPow(x, p);
 			outputStream.writeUTF(gx.toString());
+			tiempoCalcularGy += System.nanoTime() - startTime;
 
 			// Paso 11a
 			// Calcula (G^X)^Y
@@ -140,16 +144,20 @@ public class Cliente extends Thread {
 
 			// Paso 17
 			// Se envía la consulta cifrada
+			startTime = System.nanoTime();
 			BigInteger consultaUsuario = new BigInteger(64, new SecureRandom());
 			System.out.println("CLIENTE " +  id +  ": Tiene consulta " + consultaUsuario);
 			byte[] consulta = consultaUsuario.toByteArray();
 			byte[] consultaCifrada = ManejadorDeCifrado.cifrar(K_AB1, consulta, iv);
 			outputStream.writeUTF(Base64.getEncoder().encodeToString(consultaCifrada));
+			tiempoCifrarConsulta += System.nanoTime() - startTime;
 
 			// Paso 18
 			// Se envía el HMAC de la consulta
+			startTime = System.nanoTime();
 			byte[] hmac = ManejadorDeCifrado.generarHMAC(K_AB2, consulta);
 			outputStream.writeUTF(Base64.getEncoder().encodeToString(hmac));
+			tiempoGenerarCodigo += System.nanoTime() - startTime;
 
 			// -- (Paso Intermerdio) El servidor recibe la consulta y el HMAC y verifica el HMAC --
 			mensajeErrorOk = inputStream.readUTF();
@@ -182,6 +190,15 @@ public class Cliente extends Thread {
 				e.printStackTrace();
 			}
 		}
+	}
+
+	public static void imprimirTiempos() {
+		System.out.println("Tiempos de ejecución para el cliente:");
+		System.out.println();
+		System.out.println("Tiempo verificar firma: " + tiempoVerificarFirma / 1000000.0 + " ms");
+		System.out.println("Tiempo calcular Gy: " + tiempoCalcularGy / 1000000.0 + " ms");
+		System.out.println("Tiempo cifrar consulta: " + tiempoCifrarConsulta / 1000000.0 + " ms");
+		System.out.println("Tiempo generar código: " + tiempoGenerarCodigo / 1000000.0 + " ms");
 	}
 	
 }

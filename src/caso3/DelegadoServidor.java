@@ -21,6 +21,10 @@ public class DelegadoServidor extends Thread {
 	private static BigInteger p;
     private static BigInteger g;
 
+	private static long tiempoGenerarFirma = 0;
+	private static long tiempoDescifrarConsulta = 0;
+	private static long tiempoVerificarCodigo = 0;
+
 	public DelegadoServidor (int id, Socket cliente, PrivateKey privada) {
 		this.id = id;
 		this.cliente = cliente;
@@ -36,6 +40,7 @@ public class DelegadoServidor extends Thread {
 		try {
 			outputStream = new DataOutputStream(this.cliente.getOutputStream());
 			inputStream = new DataInputStream(this.cliente.getInputStream());
+			long startTime = 0;
 
 			// -- (Paso 1) El cliente envia un mensaje para iniciar la comunicacion segura --
 			String[] partesPaso1 = inputStream.readUTF().split(",");
@@ -45,11 +50,13 @@ public class DelegadoServidor extends Thread {
 
 			// Paso 2
 			// Se genera la firma digital del reto
+			startTime = System.nanoTime();
 			byte[] R1 = ManejadorDeCifrado.generarFirma(privada, new BigInteger(partesPaso1[1]).toByteArray());
 
 			// Paso 3
 			// Se envia la firma digital al cliente
 			outputStream.writeUTF(Base64.getEncoder().encodeToString(R1));
+			tiempoGenerarFirma += System.nanoTime() - startTime;
 
 			// -- (Paso 4) El cliente verifica la firma digital del servidor --
 
@@ -125,7 +132,10 @@ public class DelegadoServidor extends Thread {
 			}
 
 			// -- (Paso 17 y 18) El servidor recibe la consulta con su HMAC
+			startTime = System.nanoTime();
 			byte[] consultaDescifrada = ManejadorDeCifrado.descifrar(K_AB1, Base64.getDecoder().decode(inputStream.readUTF()), iv);
+			tiempoDescifrarConsulta += System.nanoTime() - startTime;
+			startTime = System.nanoTime();
 			byte[] hmacRecibido = Base64.getDecoder().decode(inputStream.readUTF());
 
 			// Paso intermedio
@@ -135,6 +145,7 @@ public class DelegadoServidor extends Thread {
 				throw new Exception("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada por error en el HMAC");
 			}
 			outputStream.writeUTF("OK");
+			tiempoVerificarCodigo += System.nanoTime() - startTime;
 
 			// Paso 19
 			// Se envia la respuesta cifrada al cliente
@@ -173,6 +184,14 @@ public class DelegadoServidor extends Thread {
 		byte[] iv = new byte[16];
 		new SecureRandom().nextBytes(iv);
 		return new IvParameterSpec(iv);
+	}
+
+	public static void imprimirTiempos() {
+		System.out.println("Tiempos de ejecución para el servidor:");
+		System.out.println();
+		System.out.println("Tiempo de generación de firma: " + tiempoGenerarFirma / 1000000.0 + " ms");
+		System.out.println("Tiempo de descifrado de consulta: " + tiempoDescifrarConsulta / 1000000.0 + " ms");
+		System.out.println("Tiempo de verificación de código: " + tiempoVerificarCodigo / 1000000.0 + " ms");
 	}
 
 }

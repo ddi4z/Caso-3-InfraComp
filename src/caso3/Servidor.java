@@ -27,6 +27,9 @@ public class Servidor {
     private static BigInteger g;
     private static Hashtable<String, String> usuarios = new Hashtable<String, String>();
 
+	private static ArrayList<Cliente> clientes = new ArrayList<Cliente>();
+	private static ArrayList<DelegadoServidor> delegados = new ArrayList<DelegadoServidor>();
+
 	public Servidor(int puerto) throws InvalidKeySpecException, NoSuchAlgorithmException {
 		this.puerto = puerto;
 		this.privada = ManejadorDeCifrado.generarLlavePrivada(generadorLlavePrivada);
@@ -51,12 +54,22 @@ public class Servidor {
 			Cliente cliente;
 			for (int i = 0; i < cantidadClientes; i++){
 				cliente = new Cliente(i);
+				clientes.add(cliente);
 				cliente.start();
 				nuevaSolicitud = conexion.accept();
 				delegado = new DelegadoServidor(i, nuevaSolicitud, this.privada);
+				delegados.add(delegado);
 				delegado.start();
 			}
-		} catch (IOException e) {
+
+			for (Cliente c : clientes) {
+				c.join();
+			}
+
+			for (DelegadoServidor d : delegados) {
+				d.join();
+			}
+		} catch (IOException | InterruptedException e) {
 			e.printStackTrace();
 		} finally {
 			// Se cierra el socket del servidor si se produce una excepcion
@@ -85,7 +98,14 @@ public class Servidor {
 			cantidadClientes = Integer.parseInt(sc.nextLine());
 			sc.close();
 			System.out.println("******************************************");
+
 			servidor.iniciar();
+			System.out.println();
+			System.out.println("******************************************");
+			Cliente.imprimirTiempos();
+			System.out.println();
+			DelegadoServidor.imprimirTiempos();
+			System.out.println("******************************************");
 		} catch (InvalidKeySpecException | NoSuchAlgorithmException e) {
 			e.printStackTrace();
 		}
