@@ -43,7 +43,6 @@ public class DelegadoServidor extends Thread {
 			inputStream = new DataInputStream(this.cliente.getInputStream());
 
 			while (true) {
-
 				// -- (Paso 1) El cliente envia un mensaje para iniciar la comunicacion segura --
 				String[] partesPaso1 = inputStream.readUTF().split(",");
 				if (!partesPaso1[0].equals("SECURE INIT")) {
@@ -60,7 +59,6 @@ public class DelegadoServidor extends Thread {
 
 				// -- (Paso 4) El cliente verifica la firma digital del servidor --
 				// -- (Paso 5) Se envia un mensaje al servidor para confirmar la validez de la firma --
-
 				String mensajeErrorOk = inputStream.readUTF();
 				if (!mensajeErrorOk.equals("OK")) {
 					throw new Exception("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada al verificar R1");
@@ -76,7 +74,6 @@ public class DelegadoServidor extends Thread {
 				// Paso 7
 				// Se envian los valores de p, g, gx y el vector de inicializacion al cliente
 				// tambien se envia la firma digital de los valores
-
 				outputStream.writeUTF(g.toString());
 				outputStream.writeUTF(p.toString());
 				outputStream.writeUTF(gx.toString());
@@ -130,7 +127,6 @@ public class DelegadoServidor extends Thread {
 				}
 
 				// -- (Paso 17 y 18) El servidor recibe la consulta con su HMAC
-
 				byte[] consultaDescifrada = ManejadorDeCifrado.descifrar(K_AB1, Base64.getDecoder().decode(inputStream.readUTF()), iv);
 				byte[] hmacRecibido = Base64.getDecoder().decode(inputStream.readUTF());
 
@@ -157,7 +153,7 @@ public class DelegadoServidor extends Thread {
 
 		} catch (Exception e) {
 			System.out.println("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada por error en la comunicacion");
-		}finally {
+		} finally {
 			try {
 				if (outputStream != null) outputStream.close();
 				if (inputStream != null) inputStream.close();
@@ -169,7 +165,6 @@ public class DelegadoServidor extends Thread {
 		}
 		System.out.println("Thread finalizado");
 	}
-
 
 	/*
 	 * Metodo que genera un vector de inicializacion para el CBC
@@ -216,4 +211,5 @@ public class DelegadoServidor extends Thread {
             e.printStackTrace();
         }
     }
+
 }

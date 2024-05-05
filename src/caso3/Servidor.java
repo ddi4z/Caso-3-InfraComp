@@ -35,11 +35,9 @@ public class Servidor {
 				DelegadoServidor delegado = new DelegadoServidor(nuevaSolicitud, this.privada);
 				delegado.start();
 			}
-		}
-		catch (IOException e) {
+		} catch (IOException e) {
 			e.printStackTrace();
-		}
-		finally {
+		} finally {
 			// Se cierra el socket del servidor si se produce una excepcion
 			System.out.println("Servidor cerrado correctamente");
 			if (conexion != null) {
@@ -52,7 +50,6 @@ public class Servidor {
 		}
 	}
 
-
 	/*
 	 * Metodo que inicia el servidor
 	 * Inicia el servidor en el puerto especificado
@@ -61,4 +58,5 @@ public class Servidor {
 		Servidor servidor = new Servidor(4000);
 		servidor.iniciar();
 	}
+	
 }

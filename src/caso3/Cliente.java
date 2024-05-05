@@ -46,7 +46,7 @@ public class Cliente {
 
 			// Paso 4
 			// Se valida la firma digital del servidor
-			boolean firmaEsValida = ManejadorDeCifrado.validarFirma(llavePublica,Reto.toByteArray(),R1);
+			boolean firmaEsValida = ManejadorDeCifrado.validarFirma(llavePublica, Reto.toByteArray(), R1);
 
 			// Paso 5
 			// Se envía un mensaje al servidor para confirmar la validez de la firma
@@ -65,7 +65,6 @@ public class Cliente {
 			BigInteger p = new BigInteger(inputStream.readUTF());
 			BigInteger gy = new BigInteger(inputStream.readUTF());
 			IvParameterSpec iv = new IvParameterSpec(Base64.getDecoder().decode(inputStream.readUTF()));
-
 
 			// Paso 8
 			// Se revisa la firma digital de los valores recibidos
@@ -94,7 +93,6 @@ public class Cliente {
 			SecretKey[] llaves = ManejadorDeCifrado.generarLlavesSimetricas(z);
 			SecretKey K_AB1 = llaves[0];
 			SecretKey K_AB2 = llaves[1];
-
 
 			// -- (Paso 12) El servidor genera las llaves simetricas K_AB1 y K_AB2 y envia confirmación --
 			String mensajeContinuacion = inputStream.readUTF();
@@ -155,12 +153,9 @@ public class Cliente {
 				throw new IOException("Error en la comunicación en el resultado de la consulta y el HMAC");
 			}
 			System.out.println("El numero obtenido es: " + new BigInteger(resultadoConsulta));
-
-		}
-		catch (IOException e) {
+		} catch (IOException e) {
 			System.out.println("Conexion con el servidor cerrada");
-		}
-		finally {
+		} finally {
 			try {
 				if (inputStream != null) inputStream.close();
 				if (outputStream != null) outputStream.close();
@@ -172,7 +167,5 @@ public class Cliente {
 			}
 		}
 	}
-
-
-
+	
 }

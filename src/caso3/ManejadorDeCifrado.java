@@ -18,10 +18,12 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.crypto.spec.IvParameterSpec;
 
 public class ManejadorDeCifrado {
+	
 	private static final String PADDING_SIMETRICO = "AES/CBC/PKCS5Padding";
 	private static final String PADDING_FIRMA = "SHA256withRSA";
 	private static final String PADDING_HASH = "SHA-512";
 	private static final String PADDING_HMAC = "HmacSHA256";
+
 	/*
 	 * Metodo que cifra un texto convertido a bytes
 	 * @param llave: Llave simetrica K_AB1 para cifrar
@@ -87,7 +89,13 @@ public class ManejadorDeCifrado {
 		return nuevaLlave;
 	}
 
-	public static byte[] generarFirma (PrivateKey llavePrivada, byte[] mensaje) {
+	/*
+	 * Metodo que genera una firma digital
+	 * @param llavePrivada: Llave privada del emisor
+	 * @param mensaje: Mensaje a firmar
+	 * @return firma: Arreglo de bytes que contiene la firma digital
+	*/
+	public static byte[] generarFirma(PrivateKey llavePrivada, byte[] mensaje) {
 		byte[] firma = null;
 		try {
 			Signature signature = Signature.getInstance(PADDING_FIRMA);
@@ -100,6 +108,7 @@ public class ManejadorDeCifrado {
 		}
 		return firma;
 	}
+
 	/*
 	 * Metodo que valida una firma digital
 	 * @param llavePublica: Llave publica del emisor
