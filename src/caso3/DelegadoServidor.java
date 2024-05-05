@@ -1,9 +1,7 @@
 package caso3;
 
-import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.net.Socket;
@@ -11,23 +9,20 @@ import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.util.Base64;
-import java.util.Hashtable;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 
 public class DelegadoServidor extends Thread {
-
+	private int id;
 	private Socket cliente = null;
 	private DataOutputStream outputStream = null;
 	private DataInputStream inputStream = null;
 	private PrivateKey privada;
-	private static final String rutaPyG = "datos/PG.in";
-    private static final String rutaUsuarios = "datos/usuarios.in";
-    private static BigInteger p;
+	private static BigInteger p;
     private static BigInteger g;
-    private static Hashtable<String, String> usuarios = new Hashtable<String, String>();
 
-	public DelegadoServidor (Socket cliente, PrivateKey privada) {
+	public DelegadoServidor (int id, Socket cliente, PrivateKey privada) {
+		this.id = id;
 		this.cliente = cliente;
 		this.privada = privada;
 	}
@@ -67,7 +62,8 @@ public class DelegadoServidor extends Thread {
 
 				// Paso 6
 				// Se generan los valores de p, g, gx y vi, y se envian al cliente
-				leerPyG();
+				p = Servidor.getP();
+				g = Servidor.getG();
 				IvParameterSpec iv = generateIv();
 				BigInteger x = new BigInteger(256, new SecureRandom());
 				BigInteger gx = g.modPow(x, p);
@@ -112,7 +108,6 @@ public class DelegadoServidor extends Thread {
 				outputStream.writeUTF("CONTINUAR");
 
 				// -- (Paso 13 y 14) El cliente envia el login y password cifrados --
-				leerUsuarios();
 				byte[] loginCifrado = Base64.getDecoder().decode(inputStream.readUTF());
 				byte[] passwordCifrado = Base64.getDecoder().decode(inputStream.readUTF());
 
@@ -123,7 +118,7 @@ public class DelegadoServidor extends Thread {
 
 				// Paso 16
 				// Se envia un mensaje al cliente para confirmar la validez del login y password
-				if (usuarios.containsKey(login) && usuarios.get(login).equals(password)) {
+				if (Servidor.consultarUsuario(login, password)) {
 					outputStream.writeUTF("OK");
 				} else {
 					outputStream.writeUTF("ERROR");
@@ -156,7 +151,8 @@ public class DelegadoServidor extends Thread {
 			}
 
 		} catch (Exception e) {
-			System.out.println("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada por error en la comunicacion");
+			System.out.println("DELEGADO " + id + ": Cerró la conexión con el cliente " + cliente.getRemoteSocketAddress() + " por error en la comunicacion");
+			e.printStackTrace();
 		} finally {
 			try {
 				if (outputStream != null) outputStream.close();
@@ -167,7 +163,7 @@ public class DelegadoServidor extends Thread {
 				ioe.printStackTrace();
 			}
 		}
-		System.out.println("Thread finalizado");
+		System.out.println("DELEGADO " + id + ": Ha finalizado");
 	}
 
 	/*
@@ -179,41 +175,5 @@ public class DelegadoServidor extends Thread {
 		new SecureRandom().nextBytes(iv);
 		return new IvParameterSpec(iv);
 	}
-
-	/*
-	 * Metodo que lee los valores de p y g del archivo PG.in
-	*/
-	private static void leerPyG() {
-        try {
-            BufferedReader br = new BufferedReader(new FileReader(rutaPyG));
-            String linea = "";
-            linea = br.readLine();
-            p = new BigInteger(linea, 16);
-            linea = br.readLine();
-            g = new BigInteger(linea, 16);
-            br.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-	/*
-	 * Metodo que lee los usuarios del archivo usuarios.in
-	*/
-    private void leerUsuarios() {
-        try {
-            BufferedReader br = new BufferedReader(new FileReader(rutaUsuarios));
-            String linea = "";
-            while ((linea = br.readLine()) != null) {
-                String[] partes = linea.split(":");
-                String login = partes[0];
-                String password = partes[1];
-                usuarios.put(login, password);
-            }
-            br.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
 }

@@ -5,7 +5,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.net.Socket;
-import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
@@ -13,26 +12,34 @@ import java.security.SecureRandom;
 import java.security.SignatureException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
-import java.util.Scanner;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 
-public class Cliente {
+public class Cliente extends Thread {
 	private static final String generadorLlavePublica = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgefqw/yu0jgJTobhAouBAd8CbOFYDHgANfw9ymeY2YO++DsiqMFLqPp9hyhf9sE/Lz/oBb+EsP+EPdh96kdh8P9Vt9HJ4PBqdIx3Z6psSWKXn06Dj4NIKnTCvJ1H/AbOjRuoyP9O6LfIVpquJpiKnCCuroGSI6LuagiA2f4wB5L2bGmJYahqyGgUys7pFBFvYW+NjvD4Lgs72+kSIZ0kwr6nRRr0tVGeqlmlxivbSnr6ZN5CDLjMSDGwFX6LEPiFSCDim+M8qLxRItzmW3TKVsNnkIgksJOVKnMa5BOnoP/wbaRvnOfuJYn42ADnrro1bdDZcleVP2VAMIHhpvsWjwIDAQAB";
+	private int id;
 
-	public static void main(String[] args) throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidKeyException, SignatureException {
+	public Cliente(int id) {
+		this.id = id;
+	}
+
+	@Override
+	public void run() {
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 		DataInputStream inputStream = null;
 		DataOutputStream outputStream = null;
 		Socket socket = null;
-		Scanner sc = null;
-
-		PublicKey llavePublica = ManejadorDeCifrado.generarLlavePublica(generadorLlavePublica);
 
 		try {
+			PublicKey llavePublica = ManejadorDeCifrado.generarLlavePublica(generadorLlavePublica);
 			socket = new Socket("localhost", 4000);
 			inputStream = new DataInputStream(socket.getInputStream());
 			outputStream = new DataOutputStream(socket.getOutputStream());
-			System.out.println("Conectado con el servidor: ");
+			System.out.println("CLIENTE " +  id +  ": Se ha conectado con el servidor");
 
 			// Paso 1
 			// Se envía un mensaje al servidor para iniciar la comunicación segura
@@ -107,16 +114,18 @@ public class Cliente {
 			
 			// Paso 13
 			// Se pide al usuario que introduzca su login y lo cifre con K_AB1
-			sc = new Scanner(System.in);
-			System.out.println("Introduce tu login: ");
-			byte[] login = sc.nextLine().getBytes();
+			String[] usuario = Servidor.obtenerUsuarioRandom();
+			String loginUsuario = usuario[0];
+			String passwordUsuario = usuario[1];
+			System.out.println("CLIENTE " +  id +  ": Tiene login " + loginUsuario);
+			byte[] login = loginUsuario.getBytes();
 			byte[] loginCifrado = ManejadorDeCifrado.cifrar(K_AB1, login, iv);
 			outputStream.writeUTF(Base64.getEncoder().encodeToString(loginCifrado));
 
 			// Paso 14
 			// Se pide al usuario que introduzca su password y lo cifre con K_AB1
-			System.out.println("Introduce tu password: ");
-			byte[] password = sc.nextLine().getBytes();
+			System.out.println("CLIENTE " +  id +  ": Tiene password " + passwordUsuario);
+			byte[] password = passwordUsuario.getBytes();
 			byte[] passwordCifrado = ManejadorDeCifrado.cifrar(K_AB1, password, iv);
 			outputStream.writeUTF(Base64.getEncoder().encodeToString(passwordCifrado));
 
@@ -131,8 +140,9 @@ public class Cliente {
 
 			// Paso 17
 			// Se envía la consulta cifrada
-			System.out.println("Introduce tu consulta: ");
-			byte[] consulta = new BigInteger(sc.nextLine()).toByteArray();
+			BigInteger consultaUsuario = new BigInteger(64, new SecureRandom());
+			System.out.println("CLIENTE " +  id +  ": Tiene consulta " + consultaUsuario);
+			byte[] consulta = consultaUsuario.toByteArray();
 			byte[] consultaCifrada = ManejadorDeCifrado.cifrar(K_AB1, consulta, iv);
 			outputStream.writeUTF(Base64.getEncoder().encodeToString(consultaCifrada));
 
@@ -158,15 +168,15 @@ public class Cliente {
 			if (!MessageDigest.isEqual(hmacConsulta, hmacCalculado)) {
 				throw new IOException("Error en la comunicación en el resultado de la consulta y el HMAC");
 			}
-			System.out.println("El numero obtenido es: " + new BigInteger(resultadoConsulta));
-		} catch (IOException e) {
-			System.out.println("Conexion con el servidor cerrada");
+			System.out.println("CLIENTE " +  id +  ": Obtuvo el número " + new BigInteger(resultadoConsulta));
+		} catch (IOException | SignatureException | InvalidKeySpecException | NoSuchAlgorithmException e) {
+			System.out.println("CLIENTE" +  id +  ": Cerró conexión con el servidor");
+			e.printStackTrace();
 		} finally {
 			try {
 				if (inputStream != null) inputStream.close();
 				if (outputStream != null) outputStream.close();
 				if (socket != null) socket.close();
-				if (sc != null) sc.close();
 			}
 			catch (IOException e) {
 				e.printStackTrace();
