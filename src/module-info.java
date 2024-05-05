@@ -4,5 +4,5 @@
 /**
  * 
  */
-/* module caso3 {
-} */
+module caso3 {
+} 
