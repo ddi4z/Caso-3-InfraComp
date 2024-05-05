@@ -2,30 +2,26 @@ package caso3;
 
 
 import java.math.BigInteger;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
+import javax.crypto.Mac;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import javax.crypto.spec.IvParameterSpec;
 
 public class CifradoSimetrico {
 	private static final String PADDING = "AES/CBC/PKCS5Padding";
-	private static IvParameterSpec iv = generateIv();
-
-	public static IvParameterSpec generateIv() {
-		byte[] iv = new byte[16];
-		new SecureRandom().nextBytes(iv);
-		return new IvParameterSpec(iv);
-	}
 
 
-	public static byte[] cifrar(SecretKey llave, String texto) {
+	public static byte[] cifrar(SecretKey llave, byte[] textoClaro, IvParameterSpec iv) {
 		byte[] textoCifrado;
 
 		try {
 			Cipher cifrador = Cipher.getInstance(PADDING);
-			byte[] textoClaro = texto.getBytes();
 
 			cifrador.init(Cipher.ENCRYPT_MODE, llave, iv);
 			textoCifrado = cifrador.doFinal(textoClaro);
@@ -37,7 +33,7 @@ public class CifradoSimetrico {
 		}
 	}
 
-	public static byte[] descifrar(SecretKey llave, byte[] texto) {
+	public static byte[] descifrar(SecretKey llave, byte[] texto, IvParameterSpec iv) {
 		byte[] textoClaro;
 
 		try {
@@ -50,5 +46,17 @@ public class CifradoSimetrico {
 			return null;
 		}
 		return textoClaro;
+	}
+
+	public static byte[] generarHMAC (SecretKey key, byte[] texto) throws InvalidKeyException, NoSuchAlgorithmException {
+		Mac mac = Mac.getInstance("HmacSHA256");
+		mac.init(key);
+		byte[] hmacBytes = mac.doFinal(texto);
+		return hmacBytes;
+	}
+
+	public static SecretKey generarLlave(byte[] hashHalf1) {
+		SecretKey key1 = new SecretKeySpec(hashHalf1, 0, hashHalf1.length, "AES");
+		return key1;
 	}
 }

@@ -9,6 +9,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.SecureRandom;
@@ -18,6 +19,9 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Scanner;
+import javax.crypto.SecretKey;
+
+import javax.crypto.spec.IvParameterSpec;
 
 public class Cliente {
 	private BigInteger p;
@@ -75,6 +79,7 @@ public class Cliente {
 			BigInteger g = new BigInteger(inputStream.readUTF());
 			BigInteger p = new BigInteger(inputStream.readUTF());
 			BigInteger gy = new BigInteger(inputStream.readUTF());
+			IvParameterSpec iv = new IvParameterSpec(Base64.getDecoder().decode(inputStream.readUTF()));
 			String mensajePGY = g.toString() + "," + p.toString() + "," + gy.toString();
 
 			signature = Signature.getInstance("SHA256withRSA");
@@ -92,19 +97,79 @@ public class Cliente {
 				throw new SignatureException("La firma digital no es válida.");
 			}
 
+			BigInteger x = new BigInteger(256, new SecureRandom());
+			BigInteger gx = g.modPow(x, p);
+			outputStream.writeUTF(gx.toString());
 
-			
+			BigInteger z = gy.modPow(x, p);
 
+			byte[] bytes = z.toByteArray();
+			MessageDigest digest = MessageDigest.getInstance("SHA-512");
+			byte[] hash = digest.digest(bytes);
+			int halfLength = hash.length / 2;
+			byte[] hashHalf1 = new byte[halfLength];
+			byte[] hashHalf2 = new byte[halfLength];
+			System.arraycopy(hash, 0, hashHalf1, 0, halfLength);
+			System.arraycopy(hash, halfLength, hashHalf2, 0, halfLength);
 
+			SecretKey key1 = CifradoSimetrico.generarLlave(hashHalf1);
+			SecretKey key2 = CifradoSimetrico.generarLlave(hashHalf2);
 
+			String mensaje = inputStream.readUTF();
+			if (!mensaje.equals("CONTINUAR")) {
+				throw new IOException("Error en la comunicación");
+			}
 
 			Scanner sc = new Scanner(System.in);
+
+			System.out.println("Introduce tu login: ");
+			String login = sc.nextLine();
+			System.out.println("Introduce tu password: ");
+			String password = sc.nextLine();
+
+			byte[] loginCifrado = CifradoSimetrico.cifrar(key1, login.getBytes(), iv);
+			byte[] passwordCifrado = CifradoSimetrico.cifrar(key1, password.getBytes(), iv);
+
+
+			outputStream.writeUTF(Base64.getEncoder().encodeToString(loginCifrado));
+			outputStream.writeUTF(Base64.getEncoder().encodeToString(passwordCifrado));
+
+			String mensajeErrorOk = inputStream.readUTF();
+			if (!mensajeErrorOk.equals("OK")) {
+				System.out.println("Conexion con el servidor cerrada");
+				sc.close();
+				return;
+			}
+
+
 			System.out.println("Introduce tu consulta: ");
-			String strFichero = sc.nextLine();
+			BigInteger consulta = new BigInteger(sc.nextLine());
+			byte[] consultaCifrada = CifradoSimetrico.cifrar(key1, consulta.toByteArray(), iv);
+			byte[] hmac = CifradoSimetrico.generarHMAC(key2, consulta.toByteArray());
 
-			outputStream.writeUTF(strFichero);
 
-			BigInteger resultadoConsulta = new BigInteger(inputStream.readUTF());
+			outputStream.writeUTF(Base64.getEncoder().encodeToString(consultaCifrada));
+			outputStream.writeUTF(Base64.getEncoder().encodeToString(hmac));
+
+			mensajeErrorOk = inputStream.readUTF();
+
+			if (!mensajeErrorOk.equals("OK")) {
+				System.out.println("MAL MAC");
+				sc.close();
+				return;
+			}
+
+			BigInteger resultadoConsulta = new BigInteger(CifradoSimetrico.descifrar(key1, Base64.getDecoder().decode(inputStream.readUTF()), iv));
+			byte[] hmacConsulta = Base64.getDecoder().decode(inputStream.readUTF());
+			byte[] hmacCalculado = CifradoSimetrico.generarHMAC(key2, resultadoConsulta.toByteArray());
+
+
+
+			if (!MessageDigest.isEqual(hmacConsulta, hmacCalculado)) {
+				System.out.println("Error en la comunicación");
+				sc.close();
+				return;
+			}
 
 			System.out.println("El numero obtenido es: " + resultadoConsulta.toString());
 			sc.close();

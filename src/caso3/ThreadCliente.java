@@ -8,12 +8,17 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.net.Socket;
+import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Signature;
 import java.util.Base64;
 import java.util.Hashtable;
+import javax.crypto.SecretKey;
+
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 public class ThreadCliente extends Thread {
 
@@ -79,6 +84,8 @@ public class ThreadCliente extends Thread {
 				outputStream.writeUTF(g.toString());
 				outputStream.writeUTF(p.toString());
 				outputStream.writeUTF(gx.toString());
+				IvParameterSpec iv = generateIv();
+				outputStream.writeUTF(Base64.getEncoder().encodeToString(iv.getIV()));
 				outputStream.writeUTF(Base64.getEncoder().encodeToString(PGXBytes));
 
 				mensajeErrorOk = inputStream.readUTF();
@@ -88,14 +95,74 @@ public class ThreadCliente extends Thread {
 					continue;
 				}
 
+				BigInteger gy = new BigInteger(inputStream.readUTF());
+				BigInteger z = gy.modPow(x, p);
 
 
-				BigInteger consulta = new BigInteger(inputStream.readUTF());
-				System.out.println(consulta);
+				byte[] bytes = z.toByteArray();
+				MessageDigest digest = MessageDigest.getInstance("SHA-512");
+				byte[] hash = digest.digest(bytes);
+				int halfLength = hash.length / 2;
+				byte[] hashHalf1 = new byte[halfLength];
+				byte[] hashHalf2 = new byte[halfLength];
+				System.arraycopy(hash, 0, hashHalf1, 0, halfLength);
+				System.arraycopy(hash, halfLength, hashHalf2, 0, halfLength);
 
-				StringBuilder respuesta = new StringBuilder();
-				respuesta.append(consulta.subtract(BigInteger.ONE));
-				outputStream.writeUTF(respuesta.toString());
+				SecretKey key1 = CifradoSimetrico.generarLlave(hashHalf1);
+				SecretKey key2 = CifradoSimetrico.generarLlave(hashHalf2);
+
+
+				outputStream.writeUTF("CONTINUAR");
+
+				leerUsuarios();
+				byte[] loginCifrado = Base64.getDecoder().decode(inputStream.readUTF());
+				byte[] passwordCifrado = Base64.getDecoder().decode(inputStream.readUTF());
+				
+				String login = new String(CifradoSimetrico.descifrar(key1, loginCifrado, iv));
+				String password = new String(CifradoSimetrico.descifrar(key1, passwordCifrado, iv));
+				
+
+				System.out.println(login);
+				System.out.println(password);
+
+				if (usuarios.containsKey(login) && usuarios.get(login).equals(password)) {
+					outputStream.writeUTF("OK");
+					System.out.println("Mesnaje de error OK");
+				} else {
+					outputStream.writeUTF("ERROR");
+					System.out.println("Mesnaje de error");
+					System.out.println("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada");
+					parar = true;
+					continue;
+				}
+
+
+
+
+
+				byte[] consultaDescifrada = CifradoSimetrico.descifrar(key1, Base64.getDecoder().decode(inputStream.readUTF()), iv);
+				byte[] hmacGenerado = CifradoSimetrico.generarHMAC(key2, consultaDescifrada);
+				byte[] hmac = Base64.getDecoder().decode(inputStream.readUTF());
+
+				BigInteger consulta = new BigInteger(consultaDescifrada);
+				System.out.println(consulta.toString());
+
+
+				if (!MessageDigest.isEqual(hmacGenerado, hmac)) {
+					System.out.println("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada");
+					outputStream.writeUTF("ERROR");
+					parar = true;
+					continue;
+				}
+				outputStream.writeUTF("OK");
+
+				System.out.println(consulta.toString());
+				BigInteger respuesta = consulta.subtract(BigInteger.ONE);
+				byte[] respuestaCifrada = CifradoSimetrico.cifrar(key1, respuesta.toByteArray(), iv);
+				byte[] hmacRespuesta = CifradoSimetrico.generarHMAC(key2, respuesta.toByteArray());
+
+				outputStream.writeUTF(Base64.getEncoder().encodeToString(respuestaCifrada));
+				outputStream.writeUTF(Base64.getEncoder().encodeToString(hmacRespuesta));
 			}
 
 		} catch (Exception e) {
@@ -144,6 +211,11 @@ public class ThreadCliente extends Thread {
         }
     }
 
+	private IvParameterSpec generateIv() {
+		byte[] iv = new byte[16];
+		new SecureRandom().nextBytes(iv);
+		return new IvParameterSpec(iv);
+	}
 
     private void leerUsuarios() {
         try {
