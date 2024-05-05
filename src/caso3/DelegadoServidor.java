@@ -58,6 +58,7 @@ public class DelegadoServidor extends Thread {
 				outputStream.writeUTF(Base64.getEncoder().encodeToString(R1));
 
 				// -- (Paso 4) El cliente verifica la firma digital del servidor --
+
 				// -- (Paso 5) Se envia un mensaje al servidor para confirmar la validez de la firma --
 				String mensajeErrorOk = inputStream.readUTF();
 				if (!mensajeErrorOk.equals("OK")) {
@@ -73,12 +74,12 @@ public class DelegadoServidor extends Thread {
 
 				// Paso 7
 				// Se envian los valores de p, g, gx y el vector de inicializacion al cliente
-				// tambien se envia la firma digital de los valores
 				outputStream.writeUTF(g.toString());
 				outputStream.writeUTF(p.toString());
 				outputStream.writeUTF(gx.toString());
 				outputStream.writeUTF(Base64.getEncoder().encodeToString(iv.getIV()));
-
+				
+				// Tambien se envia la firma digital de los valores
 				byte[] mensajeGenerado = (g.toString() + "," + p.toString() + "," + gx.toString()).getBytes();
 				byte[] mensajeGeneradoCifrado = ManejadorDeCifrado.generarFirma(privada, mensajeGenerado);
 				outputStream.writeUTF(Base64.getEncoder().encodeToString(mensajeGeneradoCifrado));
@@ -89,15 +90,19 @@ public class DelegadoServidor extends Thread {
 				// Se revisa que todo este correcto
 				mensajeErrorOk = inputStream.readUTF();
 				if (!mensajeErrorOk.equals("OK")) {
-					throw new Exception("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada al verificar PGX");
+					throw new Exception("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada al verificar G, P y G^X");
 				}
 
 				// -- (Paso 10) El cliente envia gy --
 				BigInteger gy = new BigInteger(inputStream.readUTF());
 
+				// -- (Paso 11a) El cliente genera las llaves simetricas K_AB1 y K_AB2 --
+
 				// Paso 11b
-				// Se generan las llaves simetricas K_AB1 y K_AB2
+				// Calcula (G^X)^Y
 				byte[] z = gy.modPow(x, p).toByteArray();
+				
+				// Se generan las llaves simetricas K_AB1 y K_AB2
 				SecretKey[] llaves = ManejadorDeCifrado.generarLlavesSimetricas(z);
 				SecretKey K_AB1 = llaves[0];
 				SecretKey K_AB2 = llaves[1];
@@ -107,18 +112,17 @@ public class DelegadoServidor extends Thread {
 				outputStream.writeUTF("CONTINUAR");
 
 				// -- (Paso 13 y 14) El cliente envia el login y password cifrados --
-
-				// Paso 15
-				// Se verifica el login y password del cliente
 				leerUsuarios();
 				byte[] loginCifrado = Base64.getDecoder().decode(inputStream.readUTF());
 				byte[] passwordCifrado = Base64.getDecoder().decode(inputStream.readUTF());
 
+				// Paso 15
+				// Se verifica el login y password del cliente
 				String login = new String(ManejadorDeCifrado.descifrar(K_AB1, loginCifrado, iv));
 				String password = new String(ManejadorDeCifrado.descifrar(K_AB1, passwordCifrado, iv));
 
 				// Paso 16
-				// Se enviara un mensaje al cliente para confirmar la validez del login y password
+				// Se envia un mensaje al cliente para confirmar la validez del login y password
 				if (usuarios.containsKey(login) && usuarios.get(login).equals(password)) {
 					outputStream.writeUTF("OK");
 				} else {

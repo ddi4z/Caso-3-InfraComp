@@ -41,6 +41,7 @@ public class Cliente {
 			outputStream.writeUTF("SECURE INIT," + Reto.toString());
 
 			// -- (Paso 2) El servidor realiza una firma digital del reto --
+
 			// -- (Paso 3) Se recibe la firma digital del servidor --
 			byte[] R1 = Base64.getDecoder().decode(inputStream.readUTF());
 
@@ -88,27 +89,32 @@ public class Cliente {
 			outputStream.writeUTF(gx.toString());
 
 			// Paso 11a
-			// Se generan las llaves simetricas K_AB1 y K_AB2
+			// Calcula (G^X)^Y
 			byte[] z = gy.modPow(x, p).toByteArray();
+			
+			// Se generan las llaves simetricas K_AB1 y K_AB2
 			SecretKey[] llaves = ManejadorDeCifrado.generarLlavesSimetricas(z);
 			SecretKey K_AB1 = llaves[0];
 			SecretKey K_AB2 = llaves[1];
 
-			// -- (Paso 12) El servidor genera las llaves simetricas K_AB1 y K_AB2 y envia confirmación --
+			// -- (Paso 11b) El servidor genera las llaves simetricas K_AB1 y K_AB2 --
+
+			// -- (Paso 12) El servidor envia confirmación --
 			String mensajeContinuacion = inputStream.readUTF();
 			if (!mensajeContinuacion.equals("CONTINUAR")) {
 				throw new IOException("Error en la comunicación en la generación de llaves simétricas");
 			}
-
-			sc = new Scanner(System.in);
-
+			
 			// Paso 13
+			// Se pide al usuario que introduzca su login y lo cifre con K_AB1
+			sc = new Scanner(System.in);
 			System.out.println("Introduce tu login: ");
 			byte[] login = sc.nextLine().getBytes();
 			byte[] loginCifrado = ManejadorDeCifrado.cifrar(K_AB1, login, iv);
 			outputStream.writeUTF(Base64.getEncoder().encodeToString(loginCifrado));
 
 			// Paso 14
+			// Se pide al usuario que introduzca su password y lo cifre con K_AB1
 			System.out.println("Introduce tu password: ");
 			byte[] password = sc.nextLine().getBytes();
 			byte[] passwordCifrado = ManejadorDeCifrado.cifrar(K_AB1, password, iv);
