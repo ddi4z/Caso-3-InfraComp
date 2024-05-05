@@ -6,10 +6,10 @@ Este repositorio contiene la implementación del Caso 3 para el curso de Infraes
 
 Siga estos pasos para ejecutar el proyecto:
 
-1. **Ejecutar el servidor:** Inicie el servidor para permitir conexiones entrantes.
-2. **Ejecutar el cliente:** Luego, ejecute al menos un cliente para interactuar con el servidor.
-3. **Llene los datos de usuario y contraseña:** Utilice los datos de usuario y contraseña proporcionados en la carpeta de datos para autenticarse en el cliente.
-4. **Escriba su consulta:** Una vez autenticado, puede escribir y enviar su consulta al servidor.
+1. Ejecuta la clase `Servidor.java`.
+2. Ingresa el número de clientes que deseas simular.
+3. En la pantalla, verás las consultas realizadas junto con sus respectivas respuestas.
+
 
 ## Integrantes
 
