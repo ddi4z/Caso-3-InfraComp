@@ -19,10 +19,10 @@ import javax.crypto.spec.IvParameterSpec;
 
 public class ManejadorDeCifrado {
 	
-	private static final String PADDING_SIMETRICO = "AES/CBC/PKCS5Padding";
-	private static final String PADDING_FIRMA = "SHA256withRSA";
-	private static final String PADDING_HASH = "SHA-512";
-	private static final String PADDING_HMAC = "HmacSHA256";
+	private static final String ALG_GENERADOR_SIMETRICO = "AES/CBC/PKCS5Padding";
+	private static final String ALG_GENERADOR_FIRMA = "SHA256withRSA";
+	private static final String ALG_GENERADOR_HASH = "SHA-512";
+	private static final String ALG_GENERADOR_HMAC = "HmacSHA256";
 	private static final String ALGORITMO_SIMETRICO = "AES";
 	private static final String ALGORITMO_ASIMETRICO = "RSA";
 
@@ -35,7 +35,7 @@ public class ManejadorDeCifrado {
 	public static byte[] cifrar(SecretKey llave, byte[] textoClaro, IvParameterSpec iv) {
 		byte[] textoCifrado = null;
 		try {
-			Cipher cifrador = Cipher.getInstance(PADDING_SIMETRICO);
+			Cipher cifrador = Cipher.getInstance(ALG_GENERADOR_SIMETRICO);
 			cifrador.init(Cipher.ENCRYPT_MODE, llave, iv);
 			textoCifrado = cifrador.doFinal(textoClaro);
 		} catch (Exception e) {
@@ -54,7 +54,7 @@ public class ManejadorDeCifrado {
 	public static byte[] descifrar(SecretKey llave, byte[] texto, IvParameterSpec iv) {
 		byte[] textoClaro = null;
 		try {
-			Cipher cifrador = Cipher.getInstance(PADDING_SIMETRICO);
+			Cipher cifrador = Cipher.getInstance(ALG_GENERADOR_SIMETRICO);
 			cifrador.init(Cipher.DECRYPT_MODE, llave, iv);
 			textoClaro = cifrador.doFinal(texto);
 		} catch (Exception e) {
@@ -72,7 +72,7 @@ public class ManejadorDeCifrado {
 	public static byte[] generarHMAC(SecretKey key, byte[] texto) {
 		byte[] hmacBytes = null;
 		try {
-			Mac mac = Mac.getInstance(PADDING_HMAC);
+			Mac mac = Mac.getInstance(ALG_GENERADOR_HMAC);
 			mac.init(key);
 			hmacBytes = mac.doFinal(texto);
 		} catch (Exception e) {
@@ -100,7 +100,7 @@ public class ManejadorDeCifrado {
 	public static byte[] generarFirma(PrivateKey llavePrivada, byte[] mensaje) {
 		byte[] firma = null;
 		try {
-			Signature signature = Signature.getInstance(PADDING_FIRMA);
+			Signature signature = Signature.getInstance(ALG_GENERADOR_FIRMA);
 			signature.initSign(llavePrivada);
 			signature.update(mensaje);
 			firma = signature.sign();
@@ -121,7 +121,7 @@ public class ManejadorDeCifrado {
 	public static boolean validarFirma(PublicKey llavePublica, byte[] actual, byte[] recibido) {
 		boolean esValida = false;
 		try {
-			Signature firma = Signature.getInstance(PADDING_FIRMA);
+			Signature firma = Signature.getInstance(ALG_GENERADOR_FIRMA);
 			firma.initVerify(llavePublica);
 			firma.update(actual);
 			esValida = firma.verify(recibido);
@@ -142,7 +142,7 @@ public class ManejadorDeCifrado {
 		SecretKey K_AB2 = null;
 		MessageDigest digest;
 		try {
-			digest = MessageDigest.getInstance(PADDING_HASH);
+			digest = MessageDigest.getInstance(ALG_GENERADOR_HASH);
 			byte[] hash = digest.digest(z);
 			int longitudMitad = hash.length / 2;
 			byte[] primeraMitad = new byte[longitudMitad];
