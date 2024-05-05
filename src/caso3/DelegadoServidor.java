@@ -37,118 +37,117 @@ public class DelegadoServidor extends Thread {
 			outputStream = new DataOutputStream(this.cliente.getOutputStream());
 			inputStream = new DataInputStream(this.cliente.getInputStream());
 
-			while (true) {
-				// -- (Paso 1) El cliente envia un mensaje para iniciar la comunicacion segura --
-				String[] partesPaso1 = inputStream.readUTF().split(",");
-				if (!partesPaso1[0].equals("SECURE INIT")) {
-					throw new Exception("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada al verificar inicio seguro");
-				}
-
-				// Paso 2
-				// Se genera la firma digital del reto
-				byte[] R1 = ManejadorDeCifrado.generarFirma(privada, new BigInteger(partesPaso1[1]).toByteArray());
-
-				// Paso 3
-				// Se envia la firma digital al cliente
-				outputStream.writeUTF(Base64.getEncoder().encodeToString(R1));
-
-				// -- (Paso 4) El cliente verifica la firma digital del servidor --
-
-				// -- (Paso 5) Se envia un mensaje al servidor para confirmar la validez de la firma --
-				String mensajeErrorOk = inputStream.readUTF();
-				if (!mensajeErrorOk.equals("OK")) {
-					throw new Exception("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada al verificar R1");
-				}
-
-				// Paso 6
-				// Se generan los valores de p, g, gx y vi, y se envian al cliente
-				p = Servidor.getP();
-				g = Servidor.getG();
-				IvParameterSpec iv = generateIv();
-				BigInteger x = new BigInteger(256, new SecureRandom());
-				BigInteger gx = g.modPow(x, p);
-
-				// Paso 7
-				// Se envian los valores de p, g, gx y el vector de inicializacion al cliente
-				outputStream.writeUTF(g.toString());
-				outputStream.writeUTF(p.toString());
-				outputStream.writeUTF(gx.toString());
-				outputStream.writeUTF(Base64.getEncoder().encodeToString(iv.getIV()));
-				
-				// Tambien se envia la firma digital de los valores
-				byte[] mensajeGenerado = (g.toString() + "," + p.toString() + "," + gx.toString()).getBytes();
-				byte[] mensajeGeneradoCifrado = ManejadorDeCifrado.generarFirma(privada, mensajeGenerado);
-				outputStream.writeUTF(Base64.getEncoder().encodeToString(mensajeGeneradoCifrado));
-
-				// -- (Paso 8) El cliente verifica la firma digital de los valores recibidos --
-
-				// Paso 9
-				// Se revisa que todo este correcto
-				mensajeErrorOk = inputStream.readUTF();
-				if (!mensajeErrorOk.equals("OK")) {
-					throw new Exception("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada al verificar G, P y G^X");
-				}
-
-				// -- (Paso 10) El cliente envia gy --
-				BigInteger gy = new BigInteger(inputStream.readUTF());
-
-				// -- (Paso 11a) El cliente genera las llaves simetricas K_AB1 y K_AB2 --
-
-				// Paso 11b
-				// Calcula (G^X)^Y
-				byte[] z = gy.modPow(x, p).toByteArray();
-				
-				// Se generan las llaves simetricas K_AB1 y K_AB2
-				SecretKey[] llaves = ManejadorDeCifrado.generarLlavesSimetricas(z);
-				SecretKey K_AB1 = llaves[0];
-				SecretKey K_AB2 = llaves[1];
-
-				// Paso 12
-				// Se envia un mensaje al cliente para confirmar la generacion de las llaves
-				outputStream.writeUTF("CONTINUAR");
-
-				// -- (Paso 13 y 14) El cliente envia el login y password cifrados --
-				byte[] loginCifrado = Base64.getDecoder().decode(inputStream.readUTF());
-				byte[] passwordCifrado = Base64.getDecoder().decode(inputStream.readUTF());
-
-				// Paso 15
-				// Se verifica el login y password del cliente
-				String login = new String(ManejadorDeCifrado.descifrar(K_AB1, loginCifrado, iv));
-				String password = new String(ManejadorDeCifrado.descifrar(K_AB1, passwordCifrado, iv));
-
-				// Paso 16
-				// Se envia un mensaje al cliente para confirmar la validez del login y password
-				if (Servidor.consultarUsuario(login, password)) {
-					outputStream.writeUTF("OK");
-				} else {
-					outputStream.writeUTF("ERROR");
-					throw new Exception("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada al verificar usuario");
-				}
-
-				// -- (Paso 17 y 18) El servidor recibe la consulta con su HMAC
-				byte[] consultaDescifrada = ManejadorDeCifrado.descifrar(K_AB1, Base64.getDecoder().decode(inputStream.readUTF()), iv);
-				byte[] hmacRecibido = Base64.getDecoder().decode(inputStream.readUTF());
-
-				// Paso intermedio
-				byte[] hmacGenerado = ManejadorDeCifrado.generarHMAC(K_AB2, consultaDescifrada);
-				if (!MessageDigest.isEqual(hmacGenerado, hmacRecibido)) {
-					outputStream.writeUTF("ERROR");
-					throw new Exception("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada por error en el HMAC");
-				}
-				outputStream.writeUTF("OK");
-
-				// Paso 19
-				// Se envia la respuesta cifrada al cliente
-				BigInteger consultaNumero = new BigInteger(consultaDescifrada);
-				BigInteger respuesta = consultaNumero.subtract(BigInteger.ONE);
-				byte[] respuestaCifrada = ManejadorDeCifrado.cifrar(K_AB1, respuesta.toByteArray(), iv);
-				outputStream.writeUTF(Base64.getEncoder().encodeToString(respuestaCifrada));
-
-				// Paso 20
-				// Se envia el HMAC de la respuesta
-				byte[] hmacRespuesta = ManejadorDeCifrado.generarHMAC(K_AB2, respuesta.toByteArray());
-				outputStream.writeUTF(Base64.getEncoder().encodeToString(hmacRespuesta));
+			// -- (Paso 1) El cliente envia un mensaje para iniciar la comunicacion segura --
+			String[] partesPaso1 = inputStream.readUTF().split(",");
+			if (!partesPaso1[0].equals("SECURE INIT")) {
+				throw new Exception("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada al verificar inicio seguro");
 			}
+
+			// Paso 2
+			// Se genera la firma digital del reto
+			byte[] R1 = ManejadorDeCifrado.generarFirma(privada, new BigInteger(partesPaso1[1]).toByteArray());
+
+			// Paso 3
+			// Se envia la firma digital al cliente
+			outputStream.writeUTF(Base64.getEncoder().encodeToString(R1));
+
+			// -- (Paso 4) El cliente verifica la firma digital del servidor --
+
+			// -- (Paso 5) Se envia un mensaje al servidor para confirmar la validez de la firma --
+			String mensajeErrorOk = inputStream.readUTF();
+			if (!mensajeErrorOk.equals("OK")) {
+				throw new Exception("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada al verificar R1");
+			}
+
+			// Paso 6
+			// Se generan los valores de p, g, gx y vi, y se envian al cliente
+			p = Servidor.getP();
+			g = Servidor.getG();
+			IvParameterSpec iv = generateIv();
+			BigInteger x = new BigInteger(256, new SecureRandom());
+			BigInteger gx = g.modPow(x, p);
+
+			// Paso 7
+			// Se envian los valores de p, g, gx y el vector de inicializacion al cliente
+			outputStream.writeUTF(g.toString());
+			outputStream.writeUTF(p.toString());
+			outputStream.writeUTF(gx.toString());
+			outputStream.writeUTF(Base64.getEncoder().encodeToString(iv.getIV()));
+			
+			// Tambien se envia la firma digital de los valores
+			byte[] mensajeGenerado = (g.toString() + "," + p.toString() + "," + gx.toString()).getBytes();
+			byte[] mensajeGeneradoCifrado = ManejadorDeCifrado.generarFirma(privada, mensajeGenerado);
+			outputStream.writeUTF(Base64.getEncoder().encodeToString(mensajeGeneradoCifrado));
+
+			// -- (Paso 8) El cliente verifica la firma digital de los valores recibidos --
+
+			// Paso 9
+			// Se revisa que todo este correcto
+			mensajeErrorOk = inputStream.readUTF();
+			if (!mensajeErrorOk.equals("OK")) {
+				throw new Exception("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada al verificar G, P y G^X");
+			}
+
+			// -- (Paso 10) El cliente envia gy --
+			BigInteger gy = new BigInteger(inputStream.readUTF());
+
+			// -- (Paso 11a) El cliente genera las llaves simetricas K_AB1 y K_AB2 --
+
+			// Paso 11b
+			// Calcula (G^X)^Y
+			byte[] z = gy.modPow(x, p).toByteArray();
+			
+			// Se generan las llaves simetricas K_AB1 y K_AB2
+			SecretKey[] llaves = ManejadorDeCifrado.generarLlavesSimetricas(z);
+			SecretKey K_AB1 = llaves[0];
+			SecretKey K_AB2 = llaves[1];
+
+			// Paso 12
+			// Se envia un mensaje al cliente para confirmar la generacion de las llaves
+			outputStream.writeUTF("CONTINUAR");
+
+			// -- (Paso 13 y 14) El cliente envia el login y password cifrados --
+			byte[] loginCifrado = Base64.getDecoder().decode(inputStream.readUTF());
+			byte[] passwordCifrado = Base64.getDecoder().decode(inputStream.readUTF());
+
+			// Paso 15
+			// Se verifica el login y password del cliente
+			String login = new String(ManejadorDeCifrado.descifrar(K_AB1, loginCifrado, iv));
+			String password = new String(ManejadorDeCifrado.descifrar(K_AB1, passwordCifrado, iv));
+
+			// Paso 16
+			// Se envia un mensaje al cliente para confirmar la validez del login y password
+			if (Servidor.consultarUsuario(login, password)) {
+				outputStream.writeUTF("OK");
+			} else {
+				outputStream.writeUTF("ERROR");
+				throw new Exception("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada al verificar usuario");
+			}
+
+			// -- (Paso 17 y 18) El servidor recibe la consulta con su HMAC
+			byte[] consultaDescifrada = ManejadorDeCifrado.descifrar(K_AB1, Base64.getDecoder().decode(inputStream.readUTF()), iv);
+			byte[] hmacRecibido = Base64.getDecoder().decode(inputStream.readUTF());
+
+			// Paso intermedio
+			byte[] hmacGenerado = ManejadorDeCifrado.generarHMAC(K_AB2, consultaDescifrada);
+			if (!MessageDigest.isEqual(hmacGenerado, hmacRecibido)) {
+				outputStream.writeUTF("ERROR");
+				throw new Exception("Conexion con cliente: " + cliente.getRemoteSocketAddress() + " cerrada por error en el HMAC");
+			}
+			outputStream.writeUTF("OK");
+
+			// Paso 19
+			// Se envia la respuesta cifrada al cliente
+			BigInteger consultaNumero = new BigInteger(consultaDescifrada);
+			BigInteger respuesta = consultaNumero.subtract(BigInteger.ONE);
+			byte[] respuestaCifrada = ManejadorDeCifrado.cifrar(K_AB1, respuesta.toByteArray(), iv);
+			outputStream.writeUTF(Base64.getEncoder().encodeToString(respuestaCifrada));
+
+			// Paso 20
+			// Se envia el HMAC de la respuesta
+			byte[] hmacRespuesta = ManejadorDeCifrado.generarHMAC(K_AB2, respuesta.toByteArray());
+			outputStream.writeUTF(Base64.getEncoder().encodeToString(hmacRespuesta));
+			
 
 		} catch (Exception e) {
 			System.out.println("DELEGADO " + id + ": Cerró la conexión con el cliente " + cliente.getRemoteSocketAddress() + " por error en la comunicacion");
