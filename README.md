@@ -1,6 +1,6 @@
 # Caso 3 - InfraComp
 
-Este repositorio contiene la implementación del Caso 3 para el curso de Infraestructura Computacional. El caso presenta un servidor con delegadis y varios clientes para realizar consultas seguras de usuarios.
+Este repositorio contiene la implementación del Caso 3 para el curso de Infraestructura Computacional. El caso presenta un servidor con delegados y varios clientes para realizar consultas seguras de usuarios.
 
 ## Integrantes
 
